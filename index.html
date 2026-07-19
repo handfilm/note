@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>snippet::vault</title>
+<meta name="description" content="A fast, phone-first vault for code, prompts, and commands.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0c0b08;
+    --panel:#131109;
+    --panel-2:#161410;
+    --border:#24211a;
+    --border-soft:#1c1a14;
+    --text:#f5efe0;
+    --text-dim:#a8a29e;
+    --text-faint:#6b6559;
+    --text-fainter:#5c5749;
+    --amber:#ffb000;
+    --teal:#4fd1c5;
+    --red:#ff6b6b;
+    --grey:#a8a29e;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'JetBrains Mono', ui-monospace, monospace;
+    min-height:100vh;
+    -webkit-tap-highlight-color:transparent;
+  }
+  ::selection{ background:#ffb00040; }
+  input, textarea, button{ font-family:inherit; }
+  button{ background:none; border:none; cursor:pointer; color:inherit; }
+
+  .app{ max-width:480px; margin:0 auto; position:relative; padding-bottom:110px; }
+
+  /* header */
+  .header{
+    position:sticky; top:0; z-index:20;
+    background:var(--bg); border-bottom:1px solid var(--border);
+    padding:20px 16px 12px;
+  }
+  .header-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .brand{ display:flex; align-items:center; gap:8px; }
+  .brand-title{ font-size:0.85rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; }
+  .icon-btn{ padding:6px; color:var(--text-faint); }
+
+  .search-wrap{ position:relative; margin-bottom:12px; }
+  .search-input{
+    width:100%; padding:10px 32px 10px 34px;
+    background:var(--panel-2); border:1px solid var(--border);
+    color:var(--text); font-size:0.85rem; outline:none;
+  }
+  .search-input:focus{ border-color:#3a362a; }
+  .search-icon{ position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--text-faint); }
+  .search-clear{ position:absolute; right:9px; top:50%; transform:translateY(-50%); color:var(--text-faint); display:none; }
+
+  .chips{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; }
+  .chips::-webkit-scrollbar{ display:none; }
+  .chip{
+    display:flex; align-items:center; gap:6px;
+    padding:5px 10px; white-space:nowrap; font-size:0.72rem;
+    border:1px solid var(--border); color:var(--text-faint);
+    flex:0 0 auto;
+  }
+  .chip.active{ background:rgba(255,255,255,0.04); }
+  .chip-count{ opacity:0.6; font-size:0.65rem; }
+
+  /* list */
+  .list{ padding:14px 16px 0; display:flex; flex-direction:column; gap:10px; }
+
+  .empty{ text-align:center; padding:70px 24px; }
+  .empty-title{ font-size:0.78rem; color:var(--text-dim); margin-bottom:8px; }
+  .empty-sub{ font-size:0.72rem; color:var(--text-fainter); margin-bottom:20px; }
+  .empty-btn{ font-size:0.75rem; padding:9px 18px; border:1px solid var(--amber); color:var(--amber); }
+
+  .card{
+    position:relative;
+    background:var(--panel); border:1px solid var(--border);
+    border-left-width:3px;
+  }
+  .card-top{ display:flex; align-items:flex-start; justify-content:space-between; padding:10px 12px 6px; gap:8px; }
+  .card-main{ flex:1; min-width:0; text-align:left; }
+  .card-title-row{ display:flex; align-items:center; gap:6px; margin-bottom:3px; }
+  .card-title{ font-size:0.86rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card-cat{ font-size:0.62rem; text-transform:uppercase; letter-spacing:0.08em; }
+  .card-actions{ display:flex; align-items:center; gap:2px; flex:0 0 auto; }
+  .card-actions button{ padding:6px; color:var(--text-faint); }
+
+  .card-body{ display:block; width:100%; text-align:left; padding:0 12px 10px; }
+  .card-pre{
+    font-size:0.68rem; line-height:1.5; color:var(--text-dim);
+    max-height:4.5em; overflow:hidden; white-space:pre-wrap; word-break:break-word;
+  }
+
+  .card-foot{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:6px 12px; border-top:1px solid var(--border-soft);
+  }
+  .card-meta{ font-size:0.62rem; color:var(--text-fainter); }
+  .confirm-row{ display:flex; align-items:center; gap:8px; font-size:0.62rem; }
+
+  .copied-flash{
+    position:absolute; left:0; right:0; bottom:-20px;
+    text-align:center; font-size:0.62rem; color:var(--teal);
+  }
+
+  /* fab */
+  .fab{
+    position:fixed; bottom:24px; left:50%;
+    transform:translateX(calc(-50% + 190px));
+    width:52px; height:52px; background:var(--amber); color:var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 6px 20px rgba(255,176,0,0.25); z-index:30;
+  }
+  @media (max-width:480px){
+    .fab{ left:auto; right:20px; transform:none; }
+  }
+
+  /* editor */
+  .editor{ display:none; min-height:100vh; flex-direction:column; }
+  .editor.open{ display:flex; }
+  .editor-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px 16px 12px; border-bottom:1px solid var(--border);
+  }
+  .back-btn{ display:flex; align-items:center; gap:4px; font-size:0.75rem; color:var(--text-dim); }
+  .save-btn{ font-size:0.72rem; padding:7px 16px; background:var(--amber); color:var(--bg); font-weight:700; }
+
+  .editor-body{ padding:16px; flex:1; display:flex; flex-direction:column; }
+  .title-input{
+    width:100%; background:transparent; border:none; outline:none;
+    color:var(--text); font-size:1.1rem; font-weight:700; margin-bottom:12px;
+  }
+  .title-input::placeholder{ color:var(--text-fainter); }
+
+  .cat-picker{ display:flex; gap:6px; margin-bottom:16px; overflow-x:auto; scrollbar-width:none; }
+  .cat-picker::-webkit-scrollbar{ display:none; }
+  .cat-chip{ padding:5px 10px; font-size:0.72rem; border:1px solid var(--border); color:var(--text-faint); white-space:nowrap; }
+  .cat-chip.active{ }
+
+  .body-textarea{
+    flex:1; min-height:45vh; width:100%; padding:12px;
+    background:var(--panel); border:1px solid var(--border);
+    color:#e6e0d0; font-size:0.8rem; line-height:1.6;
+    outline:none; resize:none;
+  }
+  .body-textarea::placeholder{ color:var(--text-fainter); }
+  .editor-stats{ display:flex; justify-content:space-between; margin-top:8px; font-size:0.62rem; color:var(--text-fainter); }
+
+  svg{ display:block; }
+</style>
+</head>
+<body>
+
+<div class="app" id="listScreen">
+  <div class="header">
+    <div class="header-row">
+      <div class="brand">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffb000" stroke-width="2.2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+        <span class="brand-title">snippet::vault</span>
+      </div>
+      <button class="icon-btn" id="exportBtn" aria-label="Export all">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      </button>
+    </div>
+
+    <div class="search-wrap">
+      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input class="search-input" id="searchInput" placeholder="search title or body..." autocomplete="off">
+      <button class="search-clear" id="searchClear">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="list" id="list"></div>
+</div>
+
+<div class="editor" id="editorScreen">
+  <div class="editor-header">
+    <button class="back-btn" id="backBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      back
+    </button>
+    <button class="save-btn" id="saveBtn">save</button>
+  </div>
+  <div class="editor-body">
+    <input class="title-input" id="titleInput" placeholder="untitled snippet">
+    <div class="cat-picker" id="catPicker"></div>
+    <textarea class="body-textarea" id="bodyInput" placeholder="paste code, prompt, or command here..." spellcheck="false"></textarea>
+    <div class="editor-stats">
+      <span id="lineCount">0 lines</span>
+      <span id="charCount">0 characters</span>
+    </div>
+  </div>
+</div>
+
+<button class="fab" id="fabBtn" aria-label="New snippet">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+</button>
+
+<script>
+const CATEGORIES = [
+  { id:'code', label:'Code', color:'#ffb000' },
+  { id:'prompt', label:'Prompt', color:'#4fd1c5' },
+  { id:'command', label:'Command', color:'#ff6b6b' },
+  { id:'note', label:'Note', color:'#a8a29e' },
+];
+const catMeta = id => CATEGORIES.find(c=>c.id===id) || CATEGORIES[3];
+const STORAGE_KEY = 'snippet_vault_data_v1';
+
+let snippets = [];
+let query = '';
+let activeCat = 'all';
+let editing = null;
+let confirmDeleteId = null;
+let copiedId = null;
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    snippets = raw ? JSON.parse(raw) : [];
+  }catch(e){ snippets = []; }
+}
+function save(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(snippets));
+}
+
+function getFiltered(){
+  let list = [...snippets];
+  if(activeCat !== 'all') list = list.filter(s=>s.category===activeCat);
+  if(query.trim()){
+    const q = query.toLowerCase();
+    list = list.filter(s => s.title.toLowerCase().includes(q) || s.body.toLowerCase().includes(q));
+  }
+  list.sort((a,b)=>{
+    if(a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return b.updatedAt - a.updatedAt;
+  });
+  return list;
+}
+
+function getCounts(){
+  const c = { all: snippets.length };
+  CATEGORIES.forEach(cat=>{ c[cat.id] = snippets.filter(s=>s.category===cat.id).length; });
+  return c;
+}
+
+function renderChips(){
+  const counts = getCounts();
+  const chipsEl = document.getElementById('chips');
+  let html = `<button class="chip ${activeCat==='all'?'active':''}" data-cat="all" style="color:${activeCat==='all'?'#f5efe0':''}">all <span class="chip-count">${counts.all}</span></button>`;
+  CATEGORIES.forEach(c=>{
+    const isActive = activeCat===c.id;
+    html += `<button class="chip ${isActive?'active':''}" data-cat="${c.id}" style="border-color:${isActive?c.color:'#24211a'};color:${isActive?c.color:'#6b6559'};background:${isActive?c.color+'14':'transparent'}">${c.label.toLowerCase()} <span class="chip-count">${counts[c.id]}</span></button>`;
+  });
+  chipsEl.innerHTML = html;
+  chipsEl.querySelectorAll('.chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ activeCat = btn.dataset.cat; renderAll(); });
+  });
+}
+
+function renderList(){
+  const listEl = document.getElementById('list');
+  const filtered = getFiltered();
+
+  if(filtered.length===0){
+    const hasQuery = !!query;
+    listEl.innerHTML = `
+      <div class="empty">
+        <div class="empty-title">${hasQuery ? '&gt;&gt; no matches in buffer' : '&gt;&gt; buffer is empty'}</div>
+        ${!hasQuery ? `
+          <div class="empty-sub">paste your first code block, prompt, or command</div>
+          <button class="empty-btn" id="emptyAddBtn">+ new snippet</button>
+        ` : ''}
+      </div>`;
+    const emptyBtn = document.getElementById('emptyAddBtn');
+    if(emptyBtn) emptyBtn.addEventListener('click', openNew);
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(s=>{
+    const meta = catMeta(s.category);
+    const lines = s.body.split('\n');
+    const preview = lines.slice(0,3).join('\n') + (lines.length>3 ? '\n...' : '');
+    const isCopied = copiedId === s.id;
+    const isConfirming = confirmDeleteId === s.id;
+
+    return `
+    <div class="card" style="border-left-color:${meta.color}" data-id="${s.id}">
+      <div class="card-top">
+        <button class="card-main" data-action="open" data-id="${s.id}">
+          <div class="card-title-row">
+            ${s.pinned ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="#ffb000" stroke="#ffb000"><path d="M12 2l1.5 5.5L19 9l-4 3 1 6-4-3.2L8 18l1-6-4-3 5.5-1.5z"/></svg>` : ''}
+            <span class="card-title">${escapeHtml(s.title)}</span>
+          </div>
+          <div class="card-cat" style="color:${meta.color}">${s.category}</div>
+        </button>
+        <div class="card-actions">
+          <button data-action="pin" data-id="${s.id}" style="color:${s.pinned?'#ffb000':'#6b6559'}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.5 5.5L19 9l-4 3 1 6-4-3.2L8 18l1-6-4-3 5.5-1.5z"/></svg>
+          </button>
+          <button data-action="copy" data-id="${s.id}" style="color:${isCopied?'#4fd1c5':'#8a8478'}">
+            ${isCopied ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4fd1c5" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>` : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="1"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`}
+          </button>
+        </div>
+      </div>
+      <button class="card-body" data-action="open" data-id="${s.id}">
+        <pre class="card-pre">${escapeHtml(preview)}</pre>
+      </button>
+      <div class="card-foot">
+        <span class="card-meta">${lines.length} line${lines.length!==1?'s':''} &middot; ${s.body.length} ch</span>
+        ${isConfirming ? `
+          <div class="confirm-row">
+            <span style="color:#ff6b6b">delete?</span>
+            <button data-action="delete-yes" data-id="${s.id}" style="color:#ff6b6b;font-weight:700">yes</button>
+            <button data-action="delete-no" data-id="${s.id}" style="color:#8a8478">no</button>
+          </div>
+        ` : `<button data-action="ask-delete" data-id="${s.id}" style="color:#5c5749">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>`}
+      </div>
+      ${isCopied ? `<div class="copied-flash">&gt;&gt; copied to clipboard</div>` : ''}
+    </div>`;
+  }).join('');
+
+  // bind card actions
+  listEl.querySelectorAll('[data-action="open"]').forEach(el=>{
+    el.addEventListener('click', ()=> openEdit(el.dataset.id));
+  });
+  listEl.querySelectorAll('[data-action="pin"]').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); togglePin(el.dataset.id); });
+  });
+  listEl.querySelectorAll('[data-action="copy"]').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); copySnippet(el.dataset.id); });
+  });
+  listEl.querySelectorAll('[data-action="ask-delete"]').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); confirmDeleteId = el.dataset.id; renderList(); });
+  });
+  listEl.querySelectorAll('[data-action="delete-yes"]').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); deleteSnippet(el.dataset.id); });
+  });
+  listEl.querySelectorAll('[data-action="delete-no"]').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); confirmDeleteId = null; renderList(); });
+  });
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function togglePin(id){
+  snippets = snippets.map(s => s.id===id ? {...s, pinned: !s.pinned} : s);
+  save(); renderAll();
+}
+
+function deleteSnippet(id){
+  snippets = snippets.filter(s => s.id !== id);
+  confirmDeleteId = null;
+  save(); renderAll();
+}
+
+async function copySnippet(id){
+  const s = snippets.find(x=>x.id===id);
+  if(!s) return;
+  try{
+    await navigator.clipboard.writeText(s.body);
+  }catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = s.body;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+  snippets = snippets.map(x => x.id===id ? {...x, updatedAt: Date.now()} : x);
+  save();
+  copiedId = id;
+  renderList();
+  setTimeout(()=>{ copiedId = null; renderList(); }, 1400);
+}
+
+function renderAll(){
+  renderChips();
+  renderList();
+}
+
+// ---- editor ----
+function openNew(){
+  editing = { id:null, title:'', body:'', category:'code', pinned:false };
+  showEditor();
+}
+function openEdit(id){
+  const s = snippets.find(x=>x.id===id);
+  if(!s) return;
+  editing = {...s};
+  showEditor();
+}
+function showEditor(){
+  document.getElementById('titleInput').value = editing.title;
+  document.getElementById('bodyInput').value = editing.body;
+  renderCatPicker();
+  updateStats();
+  document.getElementById('editorScreen').classList.add('open');
+  document.getElementById('listScreen').style.display = 'none';
+  setTimeout(()=> document.getElementById('bodyInput').focus(), 50);
+}
+function closeEditor(){
+  editing = null;
+  document.getElementById('editorScreen').classList.remove('open');
+  document.getElementById('listScreen').style.display = 'block';
+}
+function renderCatPicker(){
+  const el = document.getElementById('catPicker');
+  el.innerHTML = CATEGORIES.map(c=>{
+    const active = editing.category === c.id;
+    return `<button class="cat-chip" data-cat="${c.id}" style="border-color:${active?c.color:'#24211a'};color:${active?c.color:'#8a8478'};background:${active?c.color+'14':'transparent'}">${c.label.toLowerCase()}</button>`;
+  }).join('');
+  el.querySelectorAll('.cat-chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ editing.category = btn.dataset.cat; renderCatPicker(); });
+  });
+}
+function updateStats(){
+  const body = document.getElementById('bodyInput').value;
+  document.getElementById('lineCount').textContent = body.split('\n').length + ' lines';
+  document.getElementById('charCount').textContent = body.length + ' characters';
+}
+function saveEditing(){
+  const title = document.getElementById('titleInput').value.trim();
+  const body = document.getElementById('bodyInput').value;
+  if(!title && !body.trim()){ closeEditor(); return; }
+  const now = Date.now();
+  if(editing.id){
+    snippets = snippets.map(s => s.id===editing.id ? {...editing, title: title || 'Untitled', body, updatedAt: now} : s);
+  }else{
+    snippets = [{...editing, id: uid(), title: title || 'Untitled', body, updatedAt: now, createdAt: now}, ...snippets];
+  }
+  save();
+  closeEditor();
+  renderAll();
+}
+
+function exportAll(){
+  const blob = new Blob([JSON.stringify(snippets, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `snippet-vault-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---- wire up static controls ----
+document.getElementById('fabBtn').addEventListener('click', openNew);
+document.getElementById('backBtn').addEventListener('click', closeEditor);
+document.getElementById('saveBtn').addEventListener('click', saveEditing);
+document.getElementById('exportBtn').addEventListener('click', exportAll);
+document.getElementById('bodyInput').addEventListener('input', updateStats);
+
+const searchInput = document.getElementById('searchInput');
+const searchClear = document.getElementById('searchClear');
+searchInput.addEventListener('input', (e)=>{
+  query = e.target.value;
+  searchClear.style.display = query ? 'block' : 'none';
+  renderList();
+});
+searchClear.addEventListener('click', ()=>{
+  query = '';
+  searchInput.value = '';
+  searchClear.style.display = 'none';
+  renderList();
+});
+
+// ---- init ----
+load();
+renderAll();
+</script>
+</body>
+</html>
